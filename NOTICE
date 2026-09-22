@@ -1,0 +1,60 @@
+@linbin-mk/dsh-brand-deepseek
+Copyright (c) 2026 linbin-mk
+
+This distribution includes the third-party material listed below. Each entry
+reproduces the copyright notice and license text that its license requires.
+
+================================================================================
+src/client/brand.tsx — DeepSeek whale mark and "DeepSeek" wordmark
+================================================================================
+
+The whale silhouette (WHALE_PATH) and the letter paths of the "DeepSeek"
+wordmark (WORDMARK_PATHS) are reproduced verbatim from the brand SVG rendered
+in the header of https://www.deepseek.com/ — same path data, same viewBox
+proportions. They are used unmodified by a plugin whose whole purpose is to
+show that mark in the DeepSeek Harness Web client.
+
+The DeepSeek name, the whale mark and the DeepSeek wordmark are trademarks of
+DeepSeek (Hangzhou DeepSeek Artificial Intelligence Basic Technology Research
+Co., Ltd. / 杭州深度求索人工智能基础技术研究有限公司). They appear here for
+identification only, to render the look of the official product inside a
+user-installed plugin. The MIT license in LICENSE covers this plugin's own
+source code and nothing else: it grants no rights in these marks. This project
+is not affiliated with, endorsed by, or sponsored by DeepSeek.
+
+The upstream website publishes no license text for this asset. If you hold the
+rights to it and want this use changed or removed, open an issue at
+https://github.com/linbin-mk/dsh-brand-deepseek/issues and it will be removed.
+
+The hero headline string "想从哪里开始?" (src/client/locales.ts) is the same
+site copy, reproduced for the same purpose and under the same terms.
+
+================================================================================
+DeepSeek Harness UI strings reproduced as fallbacks
+================================================================================
+
+The settings preview labels the official default brand with the strings the
+harness itself renders ("探索未至之境", "预览版", "DSH Local Build"). They are
+quoted from DeepSeek Harness, which is distributed under the MIT license below.
+
+MIT License
+
+Copyright (c) 2026 DeepSeek
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
