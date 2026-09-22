@@ -1,6 +1,6 @@
 {
   "name": "@linbin-mk/dsh-brand-deepseek",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Third-party DeepSeek Harness brand plugin: whale mark plus a minimal 'deepseek' wordmark for the Web client sidebar.",
   "type": "module",
   "main": "./lib/index.js",
