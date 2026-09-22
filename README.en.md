@@ -47,7 +47,7 @@ pnpm install
 pnpm build
 pnpm test
 npm pack
-dsh plugin --profile web-brand add ./linbin-mk-dsh-brand-deepseek-0.1.3.tgz
+dsh plugin --profile web-brand add ./linbin-mk-dsh-brand-deepseek-0.1.4.tgz
 ```
 
 Remove it from the same profile:
