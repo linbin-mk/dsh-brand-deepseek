@@ -59,7 +59,10 @@ async function boot(persisted, { renameSessionLogClass = false } = {}) {
   const out = registration.factory(nodeShim, module, module.exports)
 
   const ctx = {
-    effect: () => () => {},
+    effect: (callback) => {
+      const dispose = callback()
+      return typeof dispose === 'function' ? dispose : () => {}
+    },
     locale: {
       register: () => {},
       bind: () => (key) => key,
@@ -68,14 +71,24 @@ async function boot(persisted, { renameSessionLogClass = false } = {}) {
       inject: () => () => {},
       register: () => () => {},
     },
-    remote: {
-      settings: {
-        describe: async () => ({
-          ok: true,
-          value: { namespaces: [{ ns: 'dsh-brand-deepseek', value: persisted }] },
+    // The plugin reads its configuration through the settings domain's shared
+    // form, keyed by the Host entry id.
+    configForms: {
+      get: () => ({
+        getSnapshot: () => ({
+          status: 'ready',
+          value: persisted,
+          base: undefined,
+          user: undefined,
+          revision: 1,
+          writable: true,
+          mode: 'host',
         }),
-        mutate: async () => ({ ok: true }),
-      },
+        subscribe: () => () => {},
+        set: async () => true,
+        unset: async () => true,
+        mutate: async () => true,
+      }),
     },
   }
   out.apply(ctx)

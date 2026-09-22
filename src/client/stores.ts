@@ -1,5 +1,6 @@
 /** Live state and the shared observable of the brand-style settings page. */
 
+import type { BrandStyleSettings } from '../settings'
 import type { BrandStyleKey } from './locales'
 
 /**
@@ -44,35 +45,31 @@ export interface BrandStyleState {
   sessionLogButton: boolean
   /** Currently selected brand color (hex). */
   color: string
+  /** Whether writes can reach the Host settings document from this page. */
+  writable: boolean
   /** Whether a read or write operation is in flight. */
   busy: boolean
   /** Error message of the last failed operation, if any. */
   error: string | null
 }
 
-/** Persisted brand-style view. */
-export interface PersistedBrandStyle {
-  enabled: boolean
-  hero: boolean
-  trajectoryTab: boolean
-  sessionLogButton: boolean
-  color: string
-}
+/** Persisted brand-style view: the shared Config document. */
+export type PersistedBrandStyle = BrandStyleSettings
 
 /** Data verbs for the settings page, owned by the plugin apply (holds ctx). */
 export interface BrandStyleHandlers {
-  /** Read the persisted style and apply its side effects (slots + color). */
+  /** Adopt the accepted style and apply its side effects (slots + color). */
   load: () => Promise<PersistedBrandStyle>
-  /** Persist the enabled flag, then apply its side effects. */
-  setEnabled: (enabled: boolean) => Promise<void>
-  /** Persist the hero-headline flag, then apply its side effects. */
-  setHero: (hero: boolean) => Promise<void>
-  /** Persist the trajectory-tab flag, then apply its side effects. */
-  setTrajectoryTab: (visible: boolean) => Promise<void>
-  /** Persist the session-log flag, then apply its side effects. */
-  setSessionLogButton: (visible: boolean) => Promise<void>
-  /** Persist the color, then apply its side effects. */
-  setColor: (color: string) => Promise<void>
+  /** Persist the enabled flag, then adopt the accepted style. */
+  setEnabled: (enabled: boolean) => Promise<PersistedBrandStyle>
+  /** Persist the hero-headline flag, then adopt the accepted style. */
+  setHero: (hero: boolean) => Promise<PersistedBrandStyle>
+  /** Persist the trajectory-tab flag, then adopt the accepted style. */
+  setTrajectoryTab: (visible: boolean) => Promise<PersistedBrandStyle>
+  /** Persist the session-log flag, then adopt the accepted style. */
+  setSessionLogButton: (visible: boolean) => Promise<PersistedBrandStyle>
+  /** Persist the color, then adopt the accepted style. */
+  setColor: (color: string) => Promise<PersistedBrandStyle>
 }
 
 function messageOf(cause: unknown): string {
@@ -94,6 +91,7 @@ export class BrandStyleObservable {
     trajectoryTab: true,
     sessionLogButton: true,
     color: DEFAULT_BRAND_COLOR,
+    writable: false,
     busy: false,
     error: null,
   }
@@ -108,9 +106,21 @@ export class BrandStyleObservable {
   }
 
   /**
-   * Reload the persisted style. The load handler also applies the side
-   * effects (brand slot registration and the color variable), so both the
-   * boot refresh and every page visit converge on the persisted state.
+   * Adopt one Host-accepted style without a write (the first read, a write
+   * folded back, or an edit made from elsewhere). In-flight or failed
+   * operations keep their own status, so an accepted push never masks an error.
+   * @param state - accepted brand-style values.
+   * @param writable - whether the Host document accepts writes from this page.
+   */
+  adopt = (state: PersistedBrandStyle, writable: boolean): void => {
+    this.state = { ...this.state, ...state, writable }
+    this.emit()
+  }
+
+  /**
+   * Reload the accepted style. The load handler also applies the side effects
+   * (brand slot registration and the color variable), so both the boot refresh
+   * and every page visit converge on the accepted state.
    */
   refresh = async (): Promise<void> => {
     const load = this.handlers?.load
@@ -118,17 +128,8 @@ export class BrandStyleObservable {
     this.state = { ...this.state, busy: true, error: null }
     this.emit()
     try {
-      const { enabled, hero, trajectoryTab, sessionLogButton, color } = await load()
-      this.state = {
-        ...this.state,
-        enabled,
-        hero,
-        trajectoryTab,
-        sessionLogButton,
-        color,
-        busy: false,
-        error: null,
-      }
+      const accepted = await load()
+      this.state = { ...this.state, ...accepted, busy: false, error: null }
     } catch (cause) {
       this.state = { ...this.state, busy: false, error: messageOf(cause) }
     }
@@ -142,8 +143,8 @@ export class BrandStyleObservable {
     this.state = { ...this.state, busy: true, error: null }
     this.emit()
     try {
-      await handler(enabled)
-      this.state = { ...this.state, enabled, busy: false, error: null }
+      const accepted = await handler(enabled)
+      this.state = { ...this.state, ...accepted, busy: false, error: null }
     } catch (cause) {
       this.state = { ...this.state, busy: false, error: messageOf(cause) }
     }
@@ -157,8 +158,8 @@ export class BrandStyleObservable {
     this.state = { ...this.state, busy: true, error: null }
     this.emit()
     try {
-      await handler(hero)
-      this.state = { ...this.state, hero, busy: false, error: null }
+      const accepted = await handler(hero)
+      this.state = { ...this.state, ...accepted, busy: false, error: null }
     } catch (cause) {
       this.state = { ...this.state, busy: false, error: messageOf(cause) }
     }
@@ -172,8 +173,8 @@ export class BrandStyleObservable {
     this.state = { ...this.state, busy: true, error: null }
     this.emit()
     try {
-      await handler(visible)
-      this.state = { ...this.state, trajectoryTab: visible, busy: false, error: null }
+      const accepted = await handler(visible)
+      this.state = { ...this.state, ...accepted, busy: false, error: null }
     } catch (cause) {
       this.state = { ...this.state, busy: false, error: messageOf(cause) }
     }
@@ -187,8 +188,8 @@ export class BrandStyleObservable {
     this.state = { ...this.state, busy: true, error: null }
     this.emit()
     try {
-      await handler(visible)
-      this.state = { ...this.state, sessionLogButton: visible, busy: false, error: null }
+      const accepted = await handler(visible)
+      this.state = { ...this.state, ...accepted, busy: false, error: null }
     } catch (cause) {
       this.state = { ...this.state, busy: false, error: messageOf(cause) }
     }
@@ -202,8 +203,8 @@ export class BrandStyleObservable {
     this.state = { ...this.state, busy: true, error: null }
     this.emit()
     try {
-      await handler(color)
-      this.state = { ...this.state, color, busy: false, error: null }
+      const accepted = await handler(color)
+      this.state = { ...this.state, ...accepted, busy: false, error: null }
     } catch (cause) {
       this.state = { ...this.state, busy: false, error: messageOf(cause) }
     }

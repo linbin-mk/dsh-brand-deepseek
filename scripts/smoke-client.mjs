@@ -38,5 +38,5 @@ if (registration.id !== manifest.name) {
   throw new Error(`bundle id ${registration.id} does not match package name ${manifest.name}`)
 }
 if (typeof out.apply !== 'function') throw new Error('apply missing')
-if (out.inject.join(',') !== 'slots,remote,remote.settings,locale') throw new Error('inject mismatch')
+if (out.inject.join(',') !== 'slots,remote,configForms,locale') throw new Error('inject mismatch')
 console.log('SMOKE OK')

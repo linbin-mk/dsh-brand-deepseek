@@ -26,8 +26,11 @@
  * the sidebar preview.
  *
  * The page remounts on every visit (the settings shell renders only the
- * active section), so it always starts from a fresh read of the persisted
- * document. Writes go through the Host settings RPC, owned by the apply half.
+ * active section), so it always starts from a fresh adoption of the accepted
+ * Config section. Writes go through the plugin's Config form, owned by the
+ * apply half; every control is disabled while a write is in flight and when
+ * the Host document cannot accept writes from this page (a non-loopback page
+ * keeps no durable settings).
  */
 
 import { useEffect, useState } from 'react'
@@ -248,7 +251,7 @@ export function BrandStyleSection({
     }
   }, [state.enabled])
 
-  const disabled = state.busy
+  const disabled = state.busy || !state.writable
 
   return (
     <div>

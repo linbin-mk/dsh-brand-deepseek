@@ -20,13 +20,13 @@
   - **自定义样式**开关 —— 关闭即恢复官方默认品牌（`DSH 本地构建` / `DSH Local Build` + 构建版本徽章）：品牌插槽整体注销，由外壳回退渲染；
   - **会话页标题**开关 —— 独立切换标题行（默认开启）；
   - **轨迹页签**与 **Session 日志按钮**开关 —— 独立显示/隐藏会话页头部这两处外壳元素（默认都开启），纯 DOM 层操作，不影响背后的轨迹数据与导出功能；
-  - **十种品牌颜色**可选（当前配色 = 官方 DeepSeek 蓝，为默认项），选择后立即生效并通过 Host 设置 RPC 持久化，刷新后仍在。
+  - **十种品牌颜色**可选（当前配色 = 官方 DeepSeek 蓝，为默认项），选择后立即生效并写回 Host 配置，刷新后仍在。
 - **实时预览** —— 设置页的预览区跟随两个状态渲染：自定义样式关闭时展示当前外壳回退品牌（鱼形标志、本地化标签与构建版本徽章）。
 
 ## 要求
 
 - Node.js `^22.19` 或 `>=24`
-- DeepSeek Harness `0.1.5-rc.1` 或兼容的 `0.1.5` 预发布版本，以及提供 `ctx.slots`、`ctx.remote.settings` 与 `ctx.locale` 的 **Web profile**
+- DeepSeek Harness `0.1.7-alpha.1` 或兼容的 `0.1.7` 预发布版本，以及提供 `ctx.slots`、`ctx.configForms` 与 `ctx.locale` 的 **Web profile**
 - Web profile 中需带有插件声明的客户端模块（`@deepseek-ai/dsh-client-ui-primitives`、`-ui-sidebar`、`-ui-settings`、`-ui-renderer`、`-locale`、`dsh-api-remotes`）；默认 Web profile 已包含
 - 产物不含任何指向 Harness checkout 的路径依赖
 
@@ -58,7 +58,7 @@ dsh plugin --profile web-brand remove @linbin-mk/dsh-brand-deepseek
 
 ## 设置
 
-Host 半侧注册 `dsh-brand-deepseek` 设置命名空间，字段默认值如下，通过 Harness 带修订保护的设置传输写入，因此修改立即生效、无需重启 Harness。命名空间名与包名**故意不同**：包名是加载标识（`@linbin-mk/dsh-brand-deepseek`），命名空间只用于持久化，改包名不会让已有设置失效。
+Host 半侧把品牌样式声明成本插件的 Cordis `Config`：五个字段全部 `.volatile()`，因此都是可在运行时改写的活配置，默认值如下。设置命名空间就是 `cordis.patch.yml` 里的 loader 行 id `brand-deepseek`——它与包名（加载标识 `@linbin-mk/dsh-brand-deepseek`）**故意不同**，改包名不会让已有设置失效。客户端半侧通过 `ctx.configForms.get('brand-deepseek')` 读写该行的配置表单，写入由 Harness 的设置域做修订号保护与串行化，因此修改立即生效、无需重启 Harness；非 loopback 页面（设置只能留在进程内存里）下写入控件整体禁用，不会假装已保存。
 
 | 设置 | 默认值 | 作用 |
 | --- | --- | --- |
@@ -70,7 +70,7 @@ Host 半侧注册 `dsh-brand-deepseek` 设置命名空间，字段默认值如�
 
 ## 工作原理
 
-- **Host 半侧**（`lib/index.js`）只做一件事：注册 `dsh-brand-deepseek` 设置命名空间，让客户端半侧的 `settings.describe` / `settings.mutate` 调用被接受并持久化。
+- **Host 半侧**（`lib/index.js`）只做两件事：声明品牌样式的 Cordis `Config`（五个 `.volatile()` 字段，即设置命名空间 `brand-deepseek` 的全部内容），并为自己这一行声明 `{ auto: false }`——本插件自带设置页，不需要侧边栏「插件」列表再自动生成一个。
 - **客户端半侧**（`lib/client.js`）是一个由 tsdown 打包、以 `window.__ModuleLoader__.load({ id, factory })` 自注册的 CJS bundle。`id` 必须等于**包名**——Harness 用入口名索引客户端模块表，名字不一致时该行解析失败、整个 GUI 起不来（而 `--dump-config` 仍显示正常）。`tsdown.config.ts` 直接从 `package.json` 取 `name` 写进 banner，`scripts/smoke-client.mjs` 再断言一次两者相等，因此重命名不会静默漂移。
 - **标题行样式**按 CSS Module 的 `<hash>_<local>` 形状匹配 Harness 的局部类名，并用会话外壳的 `[data-composer-seat]` 限定作用域、锚定在标题行自己的 `_fishHitbox` 后代上，因此不会波及其他模块（ContextMeter、ApprovalPanel）的同名 `.headline`。官方默认标题按它用过的**每个**局部名隐藏——`0.1.5-rc.1` 的 `_headlineText`，以及 `0.1.5-rc.2` 起包裹标题与徽章的 `_titleGroup`；没出现过该局部名的版本上，对应选择器只是空操作。若将来这些名字被再次改掉，插件退化为「品牌标题 + 官方标题并排显示」，而不是报错或让整个页面起不来。
 - **两个外壳开关**（轨迹页签、Session 日志按钮）按类名后缀定位元素、用本地化文案兜底，并用 `MutationObserver` 在 React 重挂载后重新应用；若两者都改名，元素保持可见，而不是误隐藏。
@@ -81,10 +81,11 @@ Host 半侧注册 `dsh-brand-deepseek` 设置命名空间，字段默认值如�
 pnpm install
 pnpm build         # src/ -> lib/（lib/ 已提交，安装后无需构建）
 pnpm build:check   # 重新构建并断言 lib/ 与提交内容一致
-pnpm test          # 两个冒烟测试
+pnpm test          # 四个冒烟测试
+npx tsc -p tsconfig.json --noEmit   # 类型检查（build.mjs 不跑 tsc）
 ```
 
-`pnpm test` 依次跑：`scripts/smoke-client.mjs`（按浏览器加载器的真实方式加载 `lib/client.js`，断言 bundle id == 包名、导出与 `inject` 契约）和 `scripts/smoke-visibility.mjs`（在 jsdom 里挂载 `apply()`，验证两个持久化开关驱动 DOM，包括重挂载后的观察者补偿与文案兜底定位）。jsdom 只是本包的开发依赖，运行时不需要。
+`pnpm test` 依次跑：`scripts/smoke-client.mjs`（按浏览器加载器的真实方式加载 `lib/client.js`，断言 bundle id == 包名、导出与 `inject` 契约）、`scripts/smoke-host.mjs`（加载 `lib/index.js`，断言五个字段都是 volatile、默认值正确，且 Host 半侧以**自己的 fiber** 注册 `{ auto: false }`）、`scripts/smoke-visibility.mjs`（在 jsdom 里挂载 `apply()`，验证两个持久化开关驱动 DOM，包括重挂载后的观察者补偿与文案兜底定位）和 `scripts/smoke-config.mjs`（用假的配置表单挂载 `apply()`，验证按行 id `brand-deepseek` 取表单、读到的配置驱动运行时、开关经 `form.set` 写回、Host 拒绝写入或页面不可写时不假装已保存）。jsdom 只是本包的开发依赖，运行时不需要。
 
 ## 常见问题
 
@@ -105,7 +106,7 @@ pnpm test          # 两个冒烟测试
 
 ## 隐私与作用域
 
-插件不发起任何网络请求、不读取会话内容、不上报遥测。它只做三件事：注册插槽占位、读写 `dsh-brand-deepseek` 设置命名空间、在会话页头部按设置隐藏两个 DOM 元素（轨迹页签、Session 日志按钮）。设置值保存在 Harness 的 profile 设置里，不离开本机。隐藏元素只影响渲染，轨迹数据与导出功能不受影响。
+插件不发起任何网络请求、不读取会话内容、不上报遥测。它只做三件事：注册插槽占位、读写本插件 `brand-deepseek` 这一行的配置、在会话页头部按设置隐藏两个 DOM 元素（轨迹页签、Session 日志按钮）。设置值保存在 Harness 的 profile 配置里，不离开本机。隐藏元素只影响渲染，轨迹数据与导出功能不受影响。
 
 ## 许可证
 

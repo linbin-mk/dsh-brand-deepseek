@@ -1,50 +1,43 @@
 /**
  * dsh-brand-deepseek host half.
  *
- * The browser presentation ships through `exports["./client"]`; this host
- * apply registers the `dsh-brand-deepseek` settings namespace so the client
- * half's `settings.describe`/`settings.mutate` RPC calls are accepted and
- * persisted (the client owns the actual read/write of the brand style).
+ * The browser presentation ships through `exports["./client"]`. This host half
+ * declares the plugin's Cordis Config — whose loader entry id
+ * (`brand-deepseek`) is the settings namespace the browser half addresses
+ * through `ctx.configForms` — and keeps the sidebar Plugins list from
+ * auto-generating a second page for a plugin that already ships its own
+ * Settings section.
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
+// Type-only: the `ctx.settings` Context merge (`SettingsForms.configure`).
+import type {} from '@deepseek-ai/dsh-settings'
+import type { BrandStyleSettings } from './settings'
 
-export const inject = ['settings']
+/**
+ * Live brand-style configuration: the {@link BrandStyleSettings} document with
+ * every field as a live reference, so the Settings page edits it without a
+ * plugin reload.
+ */
+export type Config = { [K in keyof BrandStyleSettings]: Volatile<BrandStyleSettings[K]> }
 
-/** Settings namespace holding the persisted brand style. */
-const NS = 'dsh-brand-deepseek' as SettingsNamespace
+/** Config schema; the defaults match the plugin's shipped look. */
+export const Config = z.object({
+  enabled: z.boolean().default(true).volatile(),
+  hero: z.boolean().default(true).volatile(),
+  trajectoryTab: z.boolean().default(true).volatile(),
+  sessionLogButton: z.boolean().default(true).volatile(),
+  color: z.string().default('#4176e6').volatile(),
+})
 
-/** Persisted brand-style document shape (defaults match the current look). */
-interface BrandStyleConfig {
-  enabled: boolean
-  hero: boolean
-  trajectoryTab: boolean
-  sessionLogButton: boolean
-  color: string
-}
-
-/** Host plugin body — registers the namespace, nothing else. */
+/**
+ * Host plugin body: declare this instance's settings presentation. The client
+ * ships the Settings page, so the registry generates none of its own.
+ * @param ctx - host plugin context.
+ */
 export function apply(ctx: Context): void {
-  ctx.effect(() => {
-    const scope = ctx.settings.register<BrandStyleConfig>(NS, z.object({
-      enabled: z.boolean().default(true),
-      hero: z.boolean().default(true),
-      trajectoryTab: z.boolean().default(true),
-      sessionLogButton: z.boolean().default(true),
-      color: z.string().default('#4176e6'),
-    }), {
-      base: {
-        enabled: true,
-        hero: true,
-        trajectoryTab: true,
-        sessionLogButton: true,
-        color: '#4176e6',
-      },
-    })
-    // The registration is an effect on this fiber; the returned scope merely
-    // pins the composition so the closure stays alive for the plugin lifetime.
-    return () => { void scope }
-  }, 'dsh-brand-deepseek: settings namespace')
+  ctx.inject(['settings'], (child) => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+  })
 }

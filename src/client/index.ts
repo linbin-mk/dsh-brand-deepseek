@@ -23,17 +23,18 @@
  *    Session 日志 / Session log header button, hidden and re-shown in the DOM
  *    (see visibility.ts; no harness source touched);
  *  - ten selectable brand colors (the current scheme is the default). All
- *    settings persist through the Host settings RPC (`dsh-brand-deepseek`
- *    namespace) and apply immediately.
+ *    settings live in this plugin's Cordis Config (`brand-deepseek` loader
+ *    entry), read and written through the settings domain's shared form, and
+ *    apply immediately.
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SettingsPathOpView } from '@deepseek-ai/dsh-settings/types'
+// Type-only: the `ctx.configForms` Context merge and the form contract.
+// Cross-plugin collaboration goes through the service, never a value import
+// (client bundle purity gate).
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: the settings slot declarations (`settings.section`) and the locale
-// Context merge (`ctx.locale.bind`). Cross-plugin collaboration goes through
-// the service, never a value import (client bundle purity gate).
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+// Context merge (`ctx.locale.bind`).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
@@ -49,8 +50,9 @@ import { brandStyle, DEFAULT_BRAND_COLOR } from './stores'
 import type { PersistedBrandStyle } from './stores'
 import { createVisibilityController } from './visibility'
 import { en, zh, type BrandStyleKey } from './locales'
+import { BRAND_DEEPSEEK_ENTRY_ID, type BrandStyleSettings } from '../settings'
 
-export const inject = ['slots', 'remote', 'remote.settings', 'locale']
+export const inject = ['slots', 'remote', 'configForms', 'locale']
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -58,19 +60,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Settings namespace holding the persisted brand style. */
-const NAMESPACE = 'dsh-brand-deepseek'
-
 /** Document-root color variable the brand SVGs fill from. */
 const COLOR_VAR = '--dsh-brand-deepseek-color'
 
 /** DOM id of the injected hero-headline sheet. */
 const HERO_STYLE_ID = 'dsh-brand-deepseek-hero-style'
 
-/** The settings Remote face the plugin reads and writes through. */
-type SettingsApi = ClientRemote['settings']
-
-/** Read the persisted brand style; the defaults keep today's look. */
+/** Read the accepted brand style; the defaults keep today's look. */
 function defaultsOf(stored: unknown): PersistedBrandStyle {
   const value = (stored ?? {}) as {
     enabled?: unknown
@@ -89,15 +85,19 @@ function defaultsOf(stored: unknown): PersistedBrandStyle {
 }
 
 /**
- * Client plugin body: locale dictionaries, the persisted brand-style wiring
+ * Client plugin body: locale dictionaries, the live brand-style wiring
  * (brand slot registration + color variable), and the settings page entry.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register('dsh-brand-deepseek', { zh, en }), 'dsh-brand-deepseek: dictionaries')
 
-  const api = ctx.remote.settings
   const t = ctx.locale.bind('dsh-brand-deepseek')
+
+  // The plugin's own Config form: reads derive from the Host's accepted
+  // sections and writes are revision-fenced and serialized by the settings
+  // domain, so this half never queues or reconciles writes itself.
+  const form: ConfigForm<BrandStyleSettings> = ctx.configForms.get<BrandStyleSettings>(BRAND_DEEPSEEK_ENTRY_ID)
 
   // The brand slot contribution, installable/removable at runtime so the
   // settings toggle can hand the sidebar back to the official default brand.
@@ -159,7 +159,7 @@ export function apply(ctx: ClientContext): void {
   const visibility = createVisibilityController()
   visibility.start()
 
-  /** Reconcile the runtime with one persisted style (idempotent). */
+  /** Reconcile the runtime with one brand style (idempotent). */
   const applyState = (state: PersistedBrandStyle): void => {
     if (state.enabled) installBrand()
     else uninstallBrand()
@@ -171,60 +171,62 @@ export function apply(ctx: ClientContext): void {
     visibility.setSessionLogButton(state.sessionLogButton)
   }
 
-  const readPersisted = async (): Promise<PersistedBrandStyle> => {
-    const response = await api.describe()
-    if (!response.ok) throw new Error(response.error.message)
-    const namespace = response.value.namespaces.find(view => view.ns === NAMESPACE)
-    return defaultsOf(namespace?.value)
+  /** Whether the Host document accepts writes from this page. */
+  const writable = (): boolean => {
+    const snapshot = form.getSnapshot()
+    return snapshot.status === 'ready' && snapshot.writable && snapshot.mode === 'host'
   }
 
-  const mutate = async (ops: SettingsPathOpView[]): Promise<void> => {
-    const response = await api.mutate(NAMESPACE, ops, undefined)
-    if (!response.ok) {
-      throw new Error(response.error.message)
-    }
+  /**
+   * Adopt the section the Host last accepted (the schema defaults while none
+   * stands): apply its side effects and publish it to the settings page.
+   */
+  const adopt = (): PersistedBrandStyle => {
+    const state = defaultsOf(form.getSnapshot().value)
+    applyState(state)
+    brandStyle.adopt(state, writable())
+    return state
   }
 
-  const currentOf = (): PersistedBrandStyle => {
-    const current = brandStyle.getSnapshot()
-    return {
-      enabled: current.enabled,
-      hero: current.hero,
-      trajectoryTab: current.trajectoryTab,
-      sessionLogButton: current.sessionLogButton,
-      color: current.color,
-    }
+  /**
+   * Write one field. A page the Host refuses to persist never pretends to:
+   * the write is skipped, and a refused write leaves the accepted section
+   * standing for the page to re-adopt.
+   */
+  const write = async (field: keyof BrandStyleSettings, value: boolean | string): Promise<void> => {
+    if (!writable()) throw new Error('this page cannot persist plugin settings')
+    if (!await form.set(field, value)) throw new Error(`the Host refused the "${field}" change`)
   }
 
   brandStyle.handlers = {
-    load: async () => {
-      const state = await readPersisted()
-      applyState(state)
-      return state
-    },
+    load: async () => adopt(),
     setEnabled: async (enabled) => {
-      await mutate([{ op: 'set', path: ['enabled'], value: enabled }])
-      applyState({ ...currentOf(), enabled })
+      await write('enabled', enabled)
+      return adopt()
     },
     setHero: async (hero) => {
-      await mutate([{ op: 'set', path: ['hero'], value: hero }])
-      applyState({ ...currentOf(), hero })
+      await write('hero', hero)
+      return adopt()
     },
     setTrajectoryTab: async (trajectoryTab) => {
-      await mutate([{ op: 'set', path: ['trajectoryTab'], value: trajectoryTab }])
-      applyState({ ...currentOf(), trajectoryTab })
+      await write('trajectoryTab', trajectoryTab)
+      return adopt()
     },
     setSessionLogButton: async (sessionLogButton) => {
-      await mutate([{ op: 'set', path: ['sessionLogButton'], value: sessionLogButton }])
-      applyState({ ...currentOf(), sessionLogButton })
+      await write('sessionLogButton', sessionLogButton)
+      return adopt()
     },
     setColor: async (color) => {
-      await mutate([{ op: 'set', path: ['color'], value: color }])
-      applyState({ ...currentOf(), color })
+      await write('color', color)
+      return adopt()
     },
   }
 
-  // Apply the persisted style at activation (default: DeepSeek brand on).
+  // Every accepted section reaches the runtime the same way: the first read,
+  // a write folded back, and edits made from another page or the profile patch.
+  ctx.effect(() => form.subscribe(() => { adopt() }), 'dsh-brand-deepseek: config form adoption')
+
+  // Apply the accepted style at activation (default: DeepSeek brand on).
   void brandStyle.refresh()
 
   // Drop the color variable, the hero sheet, and the chrome hider when the
