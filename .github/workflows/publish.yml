@@ -48,22 +48,37 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: pnpm/action-setup@v4 # Version comes from package.json#packageManager
-
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-          cache: pnpm
+
+      # pnpm comes from npm rather than pnpm/action-setup: that action's
+      # self-installer downloads a standalone binary and failed here with
+      # "self-installer exits with code 1" before any project step ran. The
+      # version is read from package.json so a bump cannot drift.
+      - name: Install pnpm from package.json#packageManager
+        run: |
+          pnpm_version=$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")
+          npm install -g "pnpm@$pnpm_version"
+          pnpm --version
 
       - name: Require npm 11.5.1 or later for trusted publishing
         run: |
           node -e '
             const { execSync } = require("node:child_process")
-            const version = execSync("npm --version").toString().trim()
+            const tooOld = (v) => {
+              const [major = 0, minor = 0, patch = 0] = v.split(".").map(Number)
+              return major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))
+            }
+            let version = execSync("npm --version").toString().trim()
+            if (tooOld(version)) {
+              console.log(`npm ${version} is too old — installing npm@11`)
+              execSync("npm install -g npm@11", { stdio: "inherit" })
+              version = execSync("npm --version").toString().trim()
+            }
             console.log(`npm ${version}`)
-            const [major, minor] = version.split(".").map(Number)
-            if (major < 11 || (major === 11 && minor < 5)) {
+            if (tooOld(version)) {
               console.error("npm 11.5.1 or later is required for trusted publishing")
               process.exit(1)
             }
