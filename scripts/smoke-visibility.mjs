@@ -2,9 +2,10 @@
  * Smoke test (DOM): load lib/client.js as the browser module loader would,
  * mount its apply() on a jsdom document that mirrors the harness chrome
  * (conversation header tablist with 对话/轨迹 tabs, header utilities band with
- * the Session 日志 button), and verify the two persisted show/hide toggles
- * drive the DOM — including the MutationObserver re-apply after a remount,
- * and the label fallback locator.
+ * the icon-only 更多操作 menu button that holds the Session log download), and
+ * verify the two persisted show/hide toggles drive the DOM — including the
+ * MutationObserver re-apply after a remount, the aria-label fallback locator,
+ * and the pre-0.1.5 text button whose label still locates the control.
  *
  * jsdom is a devDependency of this package (it is only needed by this script,
  * never by the plugin at runtime).
@@ -18,13 +19,13 @@ const { JSDOM } = require('jsdom')
 
 const code = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
 
-const HEADER_HTML = `
+/** Harness chrome as the rc.2 web client renders it. */
+function headerHtml({ label = '更多操作' } = {}) {
+  return `
 <div id="header">
   <div class="Gvuf8a_headerActions"></div>
   <div class="Gvuf8a_headerUtilities">
-    <button type="button" class="Gvuf8a_sessionLogButton" disabled="false">
-      <span>Session 日志</span>
-    </button>
+    <button type="button" class="Gvuf8a_moreButton" aria-label="${label}" aria-haspopup="menu" aria-expanded="false"></button>
   </div>
 </div>
 <div id="tabs" class="Gvuf8a_tabs" role="tablist">
@@ -32,17 +33,33 @@ const HEADER_HTML = `
   <button type="button" role="tab" class="Gvuf8a_tab">轨迹</button>
 </div>
 `
+}
+
+const HEADER_HTML = headerHtml()
+
+/** The same chrome as harness versions before 0.1.5-alpha.2 rendered it. */
+const LEGACY_HEADER_HTML = `
+<div id="header">
+  <div class="Gvuf8a_headerUtilities">
+    <button type="button" class="Gvuf8a_sessionLogButton">
+      <span>Session 日志</span>
+    </button>
+  </div>
+</div>
+<div id="tabs" class="Gvuf8a_tabs" role="tablist">
+  <button type="button" role="tab" class="Gvuf8a_tab">轨迹</button>
+</div>
+`
 
 /** One full boot: fresh jsdom + bundle registration + apply, given persisted values. */
-async function boot(persisted, { renameSessionLogClass = false } = {}) {
-  const dom = new JSDOM(`<!doctype html><html><head></head><body>${HEADER_HTML}</body></html>`, {
+async function boot(persisted, { header = HEADER_HTML, renamedClass = null } = {}) {
+  const dom = new JSDOM(`<!doctype html><html><head></head><body>${header}</body></html>`, {
     url: 'http://localhost/',
     pretendToBeVisual: true,
   })
   const { window } = dom
-  if (renameSessionLogClass) {
-    const button = window.document.querySelector('.Gvuf8a_sessionLogButton')
-    button.className = 'Renamed_sessionLogButton'
+  if (renamedClass !== null) {
+    window.document.querySelector(renamedClass.from).className = renamedClass.to
   }
 
   let registration
@@ -104,9 +121,9 @@ const trajectoryTabOf = (document) =>
   [...document.querySelectorAll('[role="tablist"] button[role="tab"]')]
     .find(button => button.textContent.trim() === '轨迹')
 const sessionLogButtonOf = (document) =>
-  document.querySelector('.Gvuf8a_sessionLogButton')
+  document.querySelector('.Gvuf8a_moreButton')
     ?? [...document.querySelectorAll('.Gvuf8a_headerUtilities button')]
-      .find(button => button.textContent.includes('Session 日志'))
+      .find(button => (button.getAttribute('aria-label') ?? button.textContent).includes('更多操作'))
 
 // 1. Persisted hidden: both chrome pieces get display:none.
 {
@@ -134,15 +151,36 @@ const sessionLogButtonOf = (document) =>
   assert(freshTab.style.display === 'none', 'observer should re-hide a remounted tab')
 }
 
-// 4. Session-log label fallback locator (class renamed): still hidden.
+// 4. More-actions locator fallback (class renamed away from the local): the
+//    aria-label inside the header utilities band still hides it.
 {
   const { window } = await boot(
     { enabled: true, hero: false, trajectoryTab: true, sessionLogButton: false, color: '#4176e6' },
-    { renameSessionLogClass: true },
+    { renamedClass: { from: '.Gvuf8a_moreButton', to: 'Renamed_moreActions' } },
   )
-  const button = [...window.document.querySelectorAll('.Gvuf8a_headerUtilities button')]
-    .find(b => b.textContent.includes('Session 日志'))
-  assert(button.style.display === 'none', 'label fallback should hide the session log button')
+  const button = window.document.querySelector('.Gvuf8a_headerUtilities button')
+  assert(button.style.display === 'none', 'aria-label fallback should hide the more-actions button')
+}
+
+// 5. Pre-0.1.5 chrome (dedicated text button, no more-actions button): still hidden.
+{
+  const { window } = await boot(
+    { enabled: true, hero: false, trajectoryTab: true, sessionLogButton: false, color: '#4176e6' },
+    { header: LEGACY_HEADER_HTML },
+  )
+  const button = window.document.querySelector('.Gvuf8a_sessionLogButton')
+  assert(button.style.display === 'none', 'legacy session-log label should hide the text button')
+}
+
+// 6. More-actions locator primary path (label renamed away): the CSS-module
+//    local alone hides it.
+{
+  const { window } = await boot(
+    { enabled: true, hero: false, trajectoryTab: true, sessionLogButton: false, color: '#4176e6' },
+    { header: headerHtml({ label: '其他操作' }) },
+  )
+  const button = window.document.querySelector('.Gvuf8a_moreButton')
+  assert(button.style.display === 'none', 'class local should hide the more-actions button')
 }
 
 console.log('VISIBILITY SMOKE OK')

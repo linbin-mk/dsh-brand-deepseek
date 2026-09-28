@@ -10,9 +10,10 @@
  *  - a 会话页标题 toggle — independently switches the blank-session hero
  *    headline between the DeepSeek brand title (whale + 想从哪里开始?) and
  *    the official default (探索未至之境 + 预览版 badge);
- *  - 轨迹页签 and Session 日志按钮 toggles — show/hide two pieces of harness
- *    chrome (the trajectory view tab and the session-log header button),
- *    implemented at the DOM level only, never touching harness source;
+ *  - 轨迹页签 and 更多操作按钮 toggles — show/hide two pieces of harness
+ *    chrome (the trajectory view tab and the header more-actions menu button
+ *    holding the Session log download), implemented at the DOM level only,
+ *    never touching harness source;
  *  - ten selectable brand colors (the current scheme — official DeepSeek
  *    blue — is the default). Choosing one applies and persists immediately.
  *
@@ -73,7 +74,7 @@ export interface BrandStyleSectionInjected {
   setHero: (hero: boolean) => Promise<void>
   /** Persist and apply the trajectory-tab show/hide toggle. */
   setTrajectoryTab: (visible: boolean) => Promise<void>
-  /** Persist and apply the session-log-button show/hide toggle. */
+  /** Persist and apply the session-log (more-actions) show/hide toggle. */
   setSessionLogButton: (visible: boolean) => Promise<void>
   /** Persist and apply the selected brand color. */
   setColor: (color: string) => Promise<void>
@@ -309,7 +310,7 @@ export function BrandStyleSection({
         </div>
       </div>
 
-      {/* Session 日志 button show/hide (harness chrome, DOM-level only). */}
+      {/* Header 更多操作 menu button show/hide (harness chrome, DOM-level only). */}
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ flex: 1 }}>

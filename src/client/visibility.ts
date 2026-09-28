@@ -3,8 +3,11 @@
  * without touching harness source:
  *  - the "轨迹 / Trajectory" conversation view tab (ui-trajectory registers it
  *    as a `conversation.view` slot occupant);
- *  - the "Session 日志 / Session log" header button (ui-session-log-export's
- *    `conversation.session.header.utilities` occupant).
+ *  - the header "更多操作 / More actions" menu button (dsh-session-log-export's
+ *    `conversation.session.header.utilities` occupant), whose menu holds
+ *    "下载 Session 日志 / Download session log". Harness 0.1.5-alpha.2 moved the
+ *    download out of its dedicated "Session 日志 / Session log" text button into
+ *    that menu, so both labels stay locators here.
  *
  * Both are foreign slot occupants, and the slot registry only ever adds
  * occupants — there is no API to unregister another plugin's entry — so the
@@ -23,19 +26,36 @@
 /** Localized labels of the trajectory view tab (ui-trajectory `view.trajectory`). */
 const TRAJECTORY_TAB_LABELS = new Set(['轨迹', 'Trajectory'])
 
-/** Localized labels of the session-log button (ui-session-log-export `header.action`). */
-const SESSION_LOG_LABELS = new Set(['Session 日志', 'Session log'])
+/**
+ * Accessible names of the session-log control: the more-actions menu button
+ * (session-log-export `header.more`) that holds the download entry from
+ * 0.1.5-alpha.2 on, plus the dedicated text button (`header.action`) it
+ * replaced. The icon-only button carries no text, so its name is its
+ * `aria-label`.
+ */
+const SESSION_LOG_LABELS = new Set(['更多操作', 'More actions', 'Session 日志', 'Session log'])
 
 /** Collapse whitespace the way rendered button text compares. */
 function normalizedTextOf(element: Element): string {
   return (element.textContent ?? '').replace(/\s+/g, ' ').trim()
 }
 
-/** Buttons inside `scope` whose whole text is one of `labels`. */
+/**
+ * Name a rendered control is matched by: its `aria-label` when it has one
+ * (icon-only buttons), otherwise its whole text.
+ * @param element - candidate control.
+ * @returns the trimmed accessible name.
+ */
+function accessibleNameOf(element: Element): string {
+  const label = element.getAttribute('aria-label')?.trim()
+  return label === undefined || label === '' ? normalizedTextOf(element) : label
+}
+
+/** Buttons inside `scope` whose accessible name is one of `labels`. */
 function buttonsByLabel(scope: ParentNode, labels: ReadonlySet<string>): Element[] {
   const found: Element[] = []
   for (const candidate of scope.querySelectorAll('button')) {
-    if (labels.has(normalizedTextOf(candidate))) found.push(candidate)
+    if (labels.has(accessibleNameOf(candidate))) found.push(candidate)
   }
   return found
 }
@@ -56,12 +76,13 @@ function trajectoryTabElements(): Element[] {
 }
 
 /**
- * The session-log header button: the `_sessionLogButton` CSS-module local is
- * unique to it (primary); the label inside the `_headerUtilities` band, then
- * the label anywhere in the document, are the renamed-class fallbacks.
+ * The session-log control in the conversation header: the `_moreButton`
+ * CSS-module local is unique to session-log-export in the harness client
+ * (primary); its accessible name inside the `_headerUtilities` band, then that
+ * name anywhere in the document, are the renamed-class fallbacks.
  */
 function sessionLogButtonElements(): Element[] {
-  const byClass = document.querySelectorAll('[class*="_sessionLogButton"]')
+  const byClass = document.querySelectorAll('[class*="_moreButton"]')
   if (byClass.length > 0) return [...byClass]
   const found: Element[] = []
   for (const band of document.querySelectorAll('[class*="_headerUtilities"]')) {
@@ -75,7 +96,7 @@ function sessionLogButtonElements(): Element[] {
 export interface VisibilityState {
   /** Show the 轨迹 / Trajectory view tab. */
   trajectoryTab: boolean
-  /** Show the Session 日志 / Session log header button. */
+  /** Show the header "更多操作 / More actions" menu button holding the Session log download. */
   sessionLogButton: boolean
 }
 
@@ -85,7 +106,7 @@ export interface VisibilityController {
   start(): void
   /** Show/hide the trajectory view tab, applying immediately. */
   setTrajectoryTab(visible: boolean): void
-  /** Show/hide the session-log header button, applying immediately. */
+  /** Show/hide the session-log (header more-actions) button, applying immediately. */
   setSessionLogButton(visible: boolean): void
   /** Stop watching and restore every element this controller hid. */
   dispose(): void

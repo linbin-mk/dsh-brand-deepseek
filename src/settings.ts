@@ -19,7 +19,7 @@ export interface BrandStyleSettings {
   hero: boolean
   /** Whether the 轨迹 / Trajectory conversation view tab is shown. */
   trajectoryTab: boolean
-  /** Whether the Session 日志 / Session log header button is shown. */
+  /** Whether the header "更多操作 / More actions" menu button (Session log download) is shown. */
   sessionLogButton: boolean
   /** Currently selected brand color (hex). */
   color: string

@@ -19,14 +19,14 @@
 - **品牌样式设置页**（左下角**设置 → 品牌样式**）：
   - **自定义样式**开关 —— 关闭即恢复官方默认品牌（`DSH 本地构建` / `DSH Local Build` + 构建版本徽章）：品牌插槽整体注销，由外壳回退渲染；
   - **会话页标题**开关 —— 独立切换标题行（默认开启）；
-  - **轨迹页签**与 **Session 日志按钮**开关 —— 独立显示/隐藏会话页头部这两处外壳元素（默认都开启），纯 DOM 层操作，不影响背后的轨迹数据与导出功能；
+  - **轨迹页签**与 **更多操作按钮**开关 —— 独立显示/隐藏会话页头部这两处外壳元素（默认都开启），纯 DOM 层操作，不影响背后的轨迹数据与导出功能（「下载 Session 日志」就在「更多操作」菜单里）；
   - **十种品牌颜色**可选（当前配色 = 官方 DeepSeek 蓝，为默认项），选择后立即生效并写回 Host 配置，刷新后仍在。
 - **实时预览** —— 设置页的预览区跟随两个状态渲染：自定义样式关闭时展示当前外壳回退品牌（鱼形标志、本地化标签与构建版本徽章）。
 
 ## 要求
 
 - Node.js `^22.19` 或 `>=24`
-- DeepSeek Harness `0.1.7-alpha.1` 或兼容的 `0.1.7` 预发布版本，以及提供 `ctx.slots`、`ctx.configForms` 与 `ctx.locale` 的 **Web profile**
+- DeepSeek Harness `0.1.7-rc.2` 或兼容的 `0.1.7` 预发布版本，以及提供 `ctx.slots`、`ctx.configForms` 与 `ctx.locale` 的 **Web profile**
 - Web profile 中需带有插件声明的客户端模块（`@deepseek-ai/dsh-client-ui-primitives`、`-ui-sidebar`、`-ui-settings`、`-ui-renderer`、`-locale`、`dsh-api-remotes`）；默认 Web profile 已包含
 - 产物不含任何指向 Harness checkout 的路径依赖
 
@@ -47,7 +47,7 @@ pnpm install
 pnpm build
 pnpm test
 npm pack
-dsh plugin --profile web-brand add ./linbin-mk-dsh-brand-deepseek-0.1.4.tgz
+dsh plugin --profile web-brand add ./linbin-mk-dsh-brand-deepseek-0.3.0.tgz
 ```
 
 从同一个 profile 移除插件：
@@ -65,15 +65,15 @@ Host 半侧把品牌样式声明成本插件的 Cordis `Config`：五个字段�
 | `enabled` | `true` | 自定义品牌样式总开关。关闭后品牌插槽被注销，侧边栏回到外壳的官方默认品牌。 |
 | `hero` | `true` | 空白会话页标题行是否使用 DeepSeek 品牌标题。 |
 | `trajectoryTab` | `true` | 会话页头部的「轨迹」页签是否可见（轨迹数据不受影响）。 |
-| `sessionLogButton` | `true` | 会话页头部的「Session 日志」按钮是否可见（导出功能不受影响）。 |
+| `sessionLogButton` | `true` | 会话页头部的「更多操作」菜单按钮是否可见（「下载 Session 日志」在该菜单里；导出功能不受影响）。 |
 | `color` | `#4176e6` | 品牌颜色，十选一，官方蓝为默认。 |
 
 ## 工作原理
 
 - **Host 半侧**（`lib/index.js`）只做两件事：声明品牌样式的 Cordis `Config`（五个 `.volatile()` 字段，即设置命名空间 `brand-deepseek` 的全部内容），并为自己这一行声明 `{ auto: false }`——本插件自带设置页，不需要侧边栏「插件」列表再自动生成一个。
 - **客户端半侧**（`lib/client.js`）是一个由 tsdown 打包、以 `window.__ModuleLoader__.load({ id, factory })` 自注册的 CJS bundle。`id` 必须等于**包名**——Harness 用入口名索引客户端模块表，名字不一致时该行解析失败、整个 GUI 起不来（而 `--dump-config` 仍显示正常）。`tsdown.config.ts` 直接从 `package.json` 取 `name` 写进 banner，`scripts/smoke-client.mjs` 再断言一次两者相等，因此重命名不会静默漂移。
-- **标题行样式**按 CSS Module 的 `<hash>_<local>` 形状匹配 Harness 的局部类名，并用会话外壳的 `[data-composer-seat]` 限定作用域、锚定在标题行自己的 `_fishHitbox` 后代上，因此不会波及其他模块（ContextMeter、ApprovalPanel）的同名 `.headline`。官方默认标题按它用过的**每个**局部名隐藏——`0.1.5-rc.1` 的 `_headlineText`，以及 `0.1.5-rc.2` 起包裹标题与徽章的 `_titleGroup`；没出现过该局部名的版本上，对应选择器只是空操作。若将来这些名字被再次改掉，插件退化为「品牌标题 + 官方标题并排显示」，而不是报错或让整个页面起不来。
-- **两个外壳开关**（轨迹页签、Session 日志按钮）按类名后缀定位元素、用本地化文案兜底，并用 `MutationObserver` 在 React 重挂载后重新应用；若两者都改名，元素保持可见，而不是误隐藏。
+- **标题行样式**按 CSS Module 的 `<hash>_<local>` 形状匹配 Harness 的局部类名，并用会话外壳的 `[data-composer-seat]` 限定作用域、锚定在标题行自己的 `_fishHitbox` 后代上，因此不会波及其他模块（ContextMeter、ApprovalPanel）的同名 `.headline`。官方默认标题按它用过的**每个**局部名隐藏——`0.1.5-rc.1` 的 `_headlineText`，以及 `0.1.5-rc.2` 起包裹标题与徽章的 `_titleGroup`；没出现过该局部名的版本上，对应选择器只是空操作。`0.1.7-rc.2` 上已逐个核对：`[data-composer-seat]`、`_headline`、`_fishHitbox`、`_titleGroup`、`_previewBadge` 都还在（发布包里生成的类名形如 `pXSMma_titleGroup`），`_headlineText` 已不存在，只剩历史兼容的空操作选择器。若将来这些名字被再次改掉，插件退化为「品牌标题 + 官方标题并排显示」，而不是报错或让整个页面起不来。
+- **两个外壳开关**（轨迹页签、头部「更多操作」菜单按钮）按类名后缀定位元素、用本地化文案（含 `aria-label`）兜底，并用 `MutationObserver` 在 React 重挂载后重新应用；若两者都改名，元素保持可见，而不是误隐藏。轨迹页签是 `[role="tablist"]` 里文案为「轨迹 / Trajectory」的按钮（未变）；「更多操作」按钮用 `_moreButton` 局部名（`0.1.7-rc.2` 客户端里唯一），兜底匹配 `aria-label`「更多操作 / More actions」——`0.1.5-alpha.2` 之前它是带「Session 日志 / Session log」文案的独立按钮，那条文案仍被识别。
 
 ## 构建与验证
 
@@ -85,7 +85,7 @@ pnpm test          # 四个冒烟测试
 npx tsc -p tsconfig.json --noEmit   # 类型检查（build.mjs 不跑 tsc）
 ```
 
-`pnpm test` 依次跑：`scripts/smoke-client.mjs`（按浏览器加载器的真实方式加载 `lib/client.js`，断言 bundle id == 包名、导出与 `inject` 契约）、`scripts/smoke-host.mjs`（加载 `lib/index.js`，断言五个字段都是 volatile、默认值正确，且 Host 半侧以**自己的 fiber** 注册 `{ auto: false }`）、`scripts/smoke-visibility.mjs`（在 jsdom 里挂载 `apply()`，验证两个持久化开关驱动 DOM，包括重挂载后的观察者补偿与文案兜底定位）和 `scripts/smoke-config.mjs`（用假的配置表单挂载 `apply()`，验证按行 id `brand-deepseek` 取表单、读到的配置驱动运行时、开关经 `form.set` 写回、Host 拒绝写入或页面不可写时不假装已保存）。jsdom 只是本包的开发依赖，运行时不需要。
+`pnpm test` 依次跑：`scripts/smoke-client.mjs`（按浏览器加载器的真实方式加载 `lib/client.js`，断言 bundle id == 包名、导出与 `inject` 契约）、`scripts/smoke-host.mjs`（加载 `lib/index.js`，断言五个字段都是 volatile、默认值正确，且 Host 半侧以**自己的 fiber** 注册 `{ auto: false }`）、`scripts/smoke-visibility.mjs`（在 jsdom 里按 `0.1.7-rc.2` 的真实头部标记挂载 `apply()`，验证两个持久化开关驱动 DOM，包括重挂载后的观察者补偿、`aria-label` 兜底定位，以及 `0.1.5-alpha.2` 之前那个「Session 日志」文字按钮仍被识别）和 `scripts/smoke-config.mjs`（用假的配置表单挂载 `apply()`，验证按行 id `brand-deepseek` 取表单、读到的配置驱动运行时、开关经 `form.set` 写回、Host 拒绝写入或页面不可写时不假装已保存）。jsdom 只是本包的开发依赖，运行时不需要。
 
 ## 常见问题
 
@@ -102,11 +102,11 @@ npx tsc -p tsconfig.json --noEmit   # 类型检查（build.mjs 不跑 tsc）
 - **pnpm 拒绝或询问刚发布的版本。** 这是 pnpm 的 `minimumReleaseAge` 延迟保护。放行该包（pnpm 会记录到 `minimumReleaseAgeExclude`）或等过这个时间窗口。
 - **官方 profile 下品牌重复或冲突。** 内置的 `ui-brand-official` 只在 `DSH_CLIENT_BUILD_PROFILE === 'official'` 时占用同样的插槽。本地构建的 profile 不是 official，因此不会冲突；若你确实在跑 official profile，请二选一关闭。
 - **标题行出现两个标题（品牌标题与官方标题并排）。** 说明当前 Harness 又改掉了标题行的 CSS Module 局部名，插件按设计退化而不是报错。提 issue 时附上 Harness 版本和那个 `<hash>_xxx` 局部名即可。
-- **隐藏的页签或按钮又出现了。** 观察者会在重挂载后重新应用；只有类名后缀与本地化文案**同时**变化时插件才放弃隐藏（宁可保持可见，也不误隐藏别的元素）。
+- **隐藏的页签或按钮又出现了。** 观察者会在重挂载后重新应用；只有类名后缀与本地化文案（含 `aria-label`）**同时**变化时插件才放弃隐藏（宁可保持可见，也不误隐藏别的元素）。
 
 ## 隐私与作用域
 
-插件不发起任何网络请求、不读取会话内容、不上报遥测。它只做三件事：注册插槽占位、读写本插件 `brand-deepseek` 这一行的配置、在会话页头部按设置隐藏两个 DOM 元素（轨迹页签、Session 日志按钮）。设置值保存在 Harness 的 profile 配置里，不离开本机。隐藏元素只影响渲染，轨迹数据与导出功能不受影响。
+插件不发起任何网络请求、不读取会话内容、不上报遥测。它只做三件事：注册插槽占位、读写本插件 `brand-deepseek` 这一行的配置、在会话页头部按设置隐藏两个 DOM 元素（轨迹页签、头部「更多操作」菜单按钮）。设置值保存在 Harness 的 profile 配置里，不离开本机。隐藏元素只影响渲染，轨迹数据与「下载 Session 日志」功能不受影响。
 
 ## 许可证
 

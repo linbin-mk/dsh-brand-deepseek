@@ -41,7 +41,7 @@ export interface BrandStyleState {
   hero: boolean
   /** Whether the 轨迹 / Trajectory conversation view tab is shown. */
   trajectoryTab: boolean
-  /** Whether the Session 日志 / Session log header button is shown. */
+  /** Whether the header "更多操作 / More actions" menu button (Session log download) is shown. */
   sessionLogButton: boolean
   /** Currently selected brand color (hex). */
   color: string
@@ -66,7 +66,7 @@ export interface BrandStyleHandlers {
   setHero: (hero: boolean) => Promise<PersistedBrandStyle>
   /** Persist the trajectory-tab flag, then adopt the accepted style. */
   setTrajectoryTab: (visible: boolean) => Promise<PersistedBrandStyle>
-  /** Persist the session-log flag, then adopt the accepted style. */
+  /** Persist the session-log (more-actions) flag, then adopt the accepted style. */
   setSessionLogButton: (visible: boolean) => Promise<PersistedBrandStyle>
   /** Persist the color, then adopt the accepted style. */
   setColor: (color: string) => Promise<PersistedBrandStyle>

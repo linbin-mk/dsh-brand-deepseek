@@ -19,9 +19,10 @@
  *  - a custom-style toggle — off unregisters the brand slots entirely, so the
  *    shell fallback (official default brand, `DSH Local Build`) renders;
  *  - a "会话页标题" toggle — controls the DeepSeek hero headline independently;
- *  - two harness-chrome toggles — the 轨迹 / Trajectory view tab and the
- *    Session 日志 / Session log header button, hidden and re-shown in the DOM
- *    (see visibility.ts; no harness source touched);
+ *  - two harness-chrome toggles — the 轨迹 / Trajectory view tab and the header
+ *    更多操作 / More actions menu button (holding the Session log download),
+ *    hidden and re-shown in the DOM (see visibility.ts; no harness source
+ *    touched);
  *  - ten selectable brand colors (the current scheme is the default). All
  *    settings live in this plugin's Cordis Config (`brand-deepseek` loader
  *    entry), read and written through the settings domain's shared form, and
@@ -154,8 +155,8 @@ export function apply(ctx: ClientContext): void {
     document.documentElement.style.setProperty(COLOR_VAR, color)
   }
 
-  // Show/hide of two pieces of harness chrome (轨迹 view tab, Session 日志
-  // button) — pure DOM, installed by this plugin without harness edits.
+  // Show/hide of two pieces of harness chrome (轨迹 view tab, header 更多操作
+  // menu button) — pure DOM, installed by this plugin without harness edits.
   const visibility = createVisibilityController()
   visibility.start()
 
