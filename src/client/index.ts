@@ -5,7 +5,11 @@
  * Feature 1 (brand override): fills the `sidebar.brand.mark` and
  * `sidebar.brand.name` slots with the official DeepSeek logo (whale mark +
  * wordmark). The brand fill follows the plugin-managed color variable
- * (`--dsh-brand-deepseek-color`, official DeepSeek blue by default).
+ * (`--dsh-brand-deepseek-color`, official DeepSeek blue by default). Both
+ * occupants register below the default slot priority and therefore shadow a
+ * shipped occupant (ui-brand-official registers the same slots in official
+ * builds) instead of clashing with it at priority 0 — see
+ * {@link BRAND_SLOT_PRIORITY}.
  *
  * Feature 2 (hero headline): while the "会话页标题" toggle is on, the
  * blank-session hero (the title row above the chat box) becomes the DeepSeek
@@ -64,6 +68,28 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Document-root color variable the brand SVGs fill from. */
 const COLOR_VAR = '--dsh-brand-deepseek-color'
 
+/**
+ * Shadowing rank of every brand slot this plugin occupies.
+ *
+ * The slot registry keeps one occupant per cell at each priority and renders
+ * the LOWEST priority; a second registration into an occupied `single` slot at
+ * the same priority throws (`single slot "…" already has a registration at
+ * priority 0 — register at a different priority to shadow it`). The shipped
+ * `@deepseek-ai/dsh-client-ui-brand-official` occupies `sidebar.brand.mark` and
+ * `sidebar.brand.name` at the default priority 0, and its published bundle
+ * compiles the `DSH_CLIENT_BUILD_PROFILE` gate away, so it registers in every
+ * official build — a priority-0 registration here would throw there, leaving
+ * the shipped brand in place and the settings page reporting the failure on
+ * every read.
+ *
+ * Registering below the default therefore makes this plugin the brand owner
+ * instead of a competitor: it shadows the official occupant while the custom
+ * style is on, and disposing the contribution (the custom-style toggle, or
+ * plugin unload) hands the same cell back to that occupant — or, in a build
+ * without one, to the shell fallback.
+ */
+const BRAND_SLOT_PRIORITY = -1
+
 /** DOM id of the injected hero-headline sheet. */
 const HERO_STYLE_ID = 'dsh-brand-deepseek-hero-style'
 
@@ -102,13 +128,15 @@ export function apply(ctx: ClientContext): void {
 
   // The brand slot contribution, installable/removable at runtime so the
   // settings toggle can hand the sidebar back to the official default brand.
+  // The contribution registers below the default priority so it shadows a
+  // shipped occupant (ui-brand-official) instead of clashing with it.
   let brandDispose: (() => void) | undefined
   const installBrand = (): void => {
     if (brandDispose !== undefined) return
     brandDispose = ctx.slots.inject('sidebar.brand.mark', () =>
       ctx.slots.inject('sidebar.brand.name', function* () {
-        yield ctx.slots.register({ name: 'sidebar.brand.mark' }, BrandMark)
-        yield ctx.slots.register({ name: 'sidebar.brand.name' }, BrandName)
+        yield ctx.slots.register({ name: 'sidebar.brand.mark', priority: BRAND_SLOT_PRIORITY }, BrandMark)
+        yield ctx.slots.register({ name: 'sidebar.brand.name', priority: BRAND_SLOT_PRIORITY }, BrandName)
       }))
   }
   const uninstallBrand = (): void => {
@@ -118,13 +146,16 @@ export function apply(ctx: ClientContext): void {
 
   // The hero-headline contribution: the shipped hero brand-mark slot occupant
   // (whale + title) plus the sheet that hides the official headline/badge and
-  // centers the new row. Installable/removable at runtime like the brand.
+  // centers the new row. Installable/removable at runtime like the brand, and
+  // shadowing-ranked like the sidebar brand slots, so a build that ships its
+  // own hero occupant is shadowed rather than clashed with.
   let heroDispose: (() => void) | undefined
   const installHero = (): void => {
     if (heroDispose !== undefined) return
     heroDispose = ctx.slots.inject('conversation.hero.brand.mark', () =>
       ctx.slots.register({
         name: 'conversation.hero.brand.mark',
+        priority: BRAND_SLOT_PRIORITY,
         locale: 'dsh-brand-deepseek',
       }, HeroHeadlineMark))
   }

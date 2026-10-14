@@ -19,7 +19,7 @@ const { JSDOM } = require('jsdom')
 
 const code = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
 
-/** Harness chrome as the rc.2 web client renders it. */
+/** Harness chrome as the 0.2.1-alpha.2 web client renders it. */
 function headerHtml({ label = '更多操作' } = {}) {
   return `
 <div id="header">

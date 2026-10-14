@@ -27,7 +27,7 @@ const CHROME_HTML = `
   <button type="button" role="tab" class="Gvuf8a_tab">轨迹</button>
 </div>
 <div class="Gvuf8a_headerUtilities">
-  <button type="button" class="Gvuf8a_sessionLogButton">Session 日志</button>
+  <button type="button" class="Gvuf8a_moreButton" aria-label="更多操作" aria-haspopup="menu"></button>
 </div>
 `
 
@@ -148,7 +148,7 @@ const heroSheetOf = (document) => document.getElementById(HERO_STYLE_ID)
 const trajectoryTabOf = (document) =>
   [...document.querySelectorAll('[role="tablist"] button[role="tab"]')]
     .find(button => button.textContent.trim() === '轨迹')
-const sessionLogButtonOf = (document) => document.querySelector('.Gvuf8a_sessionLogButton')
+const sessionLogButtonOf = (document) => document.querySelector('.Gvuf8a_moreButton')
 
 // 1. The accepted section drives the runtime, and the form is keyed by entry id.
 {
