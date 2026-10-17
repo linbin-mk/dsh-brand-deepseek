@@ -5,6 +5,9 @@
  * The id assertion is deliberately derived from package.json rather than a
  * literal: the client module table is keyed by entry name == package name, and
  * a hardcoded copy would stay green through a rename that breaks the boot.
+ * The `engines.dsh` assertion is the same idea for the declared target: the
+ * harness compatibility preflight reads it without loading plugin code, so it
+ * must stay in lockstep with the DSH peer line this bundle is built against.
  */
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
@@ -39,4 +42,15 @@ if (registration.id !== manifest.name) {
 }
 if (typeof out.apply !== 'function') throw new Error('apply missing')
 if (out.inject.join(',') !== 'slots,remote,configForms,locale') throw new Error('inject mismatch')
+// One declared target: the harness reads `engines.dsh` alone when present, so it
+// must name the exact DSH peer line the bundle was built against.
+const dshTarget = manifest.engines?.dsh
+const dshPeerTarget = manifest.peerDependencies?.['@deepseek-ai/dsh-api-remotes']
+if (typeof dshTarget !== 'string' || dshTarget.trim() === '') {
+  throw new Error('package.json must declare engines.dsh (the supported DSH range)')
+}
+if (dshTarget !== dshPeerTarget) {
+  throw new Error(`engines.dsh ${dshTarget} must equal the DSH peer target ${dshPeerTarget}`)
+}
+console.log('engines.dsh:', dshTarget)
 console.log('SMOKE OK')

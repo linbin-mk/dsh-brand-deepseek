@@ -110,7 +110,7 @@ function createForm({ value, accept = true } = {}) {
   const listeners = new Set()
   let snapshot = {
     status: 'ready', value, base: undefined, user: undefined,
-    revision: value === undefined ? undefined : 1, writable: true, mode: 'host',
+    revision: value === undefined ? undefined : 1, writable: true,
   }
   const form = {
     getSnapshot: () => snapshot,

@@ -27,7 +27,8 @@
 ## 要求
 
 - Node.js `^22.19` 或 `>=24`
-- DeepSeek Harness `0.2.1-alpha.2` 或兼容的 `0.2.1` 预发布版本，以及提供 `ctx.slots`、`ctx.configForms` 与 `ctx.locale` 的 **Web profile**
+- DeepSeek Harness `0.2.1-rc.2` 或兼容的 `0.2.1` 预发布版本，以及提供 `ctx.slots`、`ctx.configForms` 与 `ctx.locale` 的 **Web profile**
+- 包内声明 `engines.dsh = ^0.2.1-rc.2`：Harness 的插件兼容性预检在**不加载插件代码**的前提下读取它（声明了 `engines.dsh` 时以它为准，`peerDependencies` 不再参与判定），版本不符时会给出明确的不兼容提示，而不是等到运行期出错
 - Web profile 中需带有插件声明的客户端模块（`@deepseek-ai/dsh-client-ui-primitives`、`-ui-sidebar`、`-ui-settings`、`-ui-renderer`、`-locale`、`dsh-api-remotes`）；默认 Web profile 已包含
 - 产物不含任何指向 Harness checkout 的路径依赖
 
@@ -48,7 +49,7 @@ pnpm install
 pnpm build
 pnpm test
 npm pack
-dsh plugin --profile web-brand add ./linbin-mk-dsh-brand-deepseek-0.4.0.tgz
+dsh plugin --profile web-brand add ./linbin-mk-dsh-brand-deepseek-0.5.0.tgz
 ```
 
 从同一个 profile 移除插件：
@@ -59,7 +60,7 @@ dsh plugin --profile web-brand remove @linbin-mk/dsh-brand-deepseek
 
 ## 设置
 
-Host 半侧把品牌样式声明成本插件的 Cordis `Config`：五个字段全部 `.volatile()`，因此都是可在运行时改写的活配置，默认值如下。设置命名空间就是 `cordis.patch.yml` 里的 loader 行 id `brand-deepseek`——它与包名（加载标识 `@linbin-mk/dsh-brand-deepseek`）**故意不同**，改包名不会让已有设置失效。客户端半侧通过 `ctx.configForms.get('brand-deepseek')` 读写该行的配置表单，写入由 Harness 的设置域做修订号保护与串行化，因此修改立即生效、无需重启 Harness；非 loopback 页面（设置只能留在进程内存里）下写入控件整体禁用，不会假装已保存。
+Host 半侧把品牌样式声明成本插件的 Cordis `Config`：五个字段全部 `.volatile()`，因此都是可在运行时改写的活配置，默认值如下。设置命名空间就是 `cordis.patch.yml` 里的 loader 行 id `brand-deepseek`——它与包名（加载标识 `@linbin-mk/dsh-brand-deepseek`）**故意不同**，改包名不会让已有设置失效。客户端半侧通过 `ctx.configForms.get('brand-deepseek')` 读写该行的配置表单，写入由 Harness 的设置域做修订号保护与串行化，因此修改立即生效、无需重启 Harness。从 DSH `0.2.1-rc.2` 起所有已认证浏览器都通过 Host 配置文档持久化（客户端上「进程内存储」的 memory 模式已从 `ConfigFormSnapshot` 删除），因此只有当 Host 文档明确不接受写入或当前页面读不到该命名空间时，写入控件才整体禁用、不会假装已保存。
 
 | 设置 | 默认值 | 作用 |
 | --- | --- | --- |
@@ -72,11 +73,12 @@ Host 半侧把品牌样式声明成本插件的 Cordis `Config`：五个字段�
 ## 工作原理
 
 - **Host 半侧**（`lib/index.js`）只做两件事：声明品牌样式的 Cordis `Config`（五个 `.volatile()` 字段，即设置命名空间 `brand-deepseek` 的全部内容），并为自己这一行声明 `{ auto: false }`——本插件自带设置页，不需要侧边栏「插件」列表再自动生成一个。
+- **目标版本声明** —— `package.json` 的 `engines.dsh` 声明本插件面向的 DSH 范围（`^0.2.1-rc.2`，与 DSH peer 依赖同一行）；`scripts/smoke-client.mjs` 断言两者一致，避免「依赖升了、声明没升」的漂移。Harness 的插件兼容性预检读取该字段时不需要加载插件代码。
 - **品牌插槽的优先级（压过而不是抢占）** —— 插槽注册表对同一个 `single` 单元只允许**每个优先级**一个占位，并渲染优先级**最低**的那个；在同一优先级重复注册会抛错。内置的 `@deepseek-ai/dsh-client-ui-brand-official` 以默认优先级 `0` 占用 `sidebar.brand.mark` 与 `sidebar.brand.name`，且它发布出去的 bundle 已经把 `DSH_CLIENT_BUILD_PROFILE` 构建开关**编译掉**了，所以**每个 official 构建都会真正注册这两个占位**。本插件若按默认优先级注册，就会在 official 构建里被注册表拒绝（`single slot "…" already has a registration at priority 0`）：品牌留在内置占位上，设置页每次读取都报这个错。因此三个品牌插槽统一用 `priority: -1` 注册：自定义样式开启时稳稳压过内置占位，关闭时注销自身、把同一个单元**交还**给内置占位（没有内置占位的本地构建则回退到外壳品牌）。
 - **客户端半侧**（`lib/client.js`）是一个由 tsdown 打包、以 `window.__ModuleLoader__.load({ id, factory })` 自注册的 CJS bundle。`id` 必须等于**包名**——Harness 用入口名索引客户端模块表，名字不一致时该行解析失败、整个 GUI 起不来（而 `--dump-config` 仍显示正常）。`tsdown.config.ts` 直接从 `package.json` 取 `name` 写进 banner，`scripts/smoke-client.mjs` 再断言一次两者相等，因此重命名不会静默漂移。
 - **插件清单的展示信息**由 `readPluginMeta`（`dsh-app-boot`）在不执行插件代码的前提下读取：`./locale/*.json`（先 `en.json`，再枚举同目录的语言文件）提供 `meta.title`/`meta.description`，`./icon` 提供图标。二者都走 Node 的 ESM 解析器，因此必须同时出现在 `exports`（解析器可见）与 `files`（打包带上）里；`scripts/smoke-metadata.mjs` 会按同样的规则解析并校验文本、语言 id 文件名、图标格式与 256 KiB 上限，并断言图标画的就是侧边栏那位占位渲染的同一条鲸鱼路径。
-- **标题行样式**按 CSS Module 的 `<hash>_<local>` 形状匹配 Harness 的局部类名，并用会话外壳的 `[data-composer-seat]` 限定作用域、锚定在标题行自己的 `_fishHitbox` 后代上，因此不会波及其他模块（ContextMeter、ApprovalPanel）的同名 `.headline`。官方默认标题按它用过的**每个**局部名隐藏——`0.1.5-rc.1` 的 `_headlineText`，以及 `0.1.5-rc.2` 起包裹标题与徽章的 `_titleGroup`；没出现过该局部名的版本上，对应选择器只是空操作。`0.2.1-alpha.2` 上已逐个核对：`[data-composer-seat]`、`_headline`、`_fishHitbox`、`_titleGroup`、`_previewBadge` 都还在（发布包里生成的类名形如 `pXSMma_titleGroup`），`_headlineText` 已不存在，只剩历史兼容的空操作选择器。`scripts/smoke-locators.mjs` 现在把这套核对自动化：每个在用定位点都必须在对应包的已发布 bundle 里出现，且插件源码里新出现的定位点必须先在表里登记。
-- **两个外壳开关**（轨迹页签、头部「更多操作」菜单按钮）按类名后缀定位元素、用本地化文案（含 `aria-label`）兜底，并用 `MutationObserver` 在 React 重挂载后重新应用；若两者都改名，元素保持可见，而不是误隐藏。轨迹页签是 `[role="tablist"]` 里文案为「轨迹 / Trajectory」的按钮（未变）；「更多操作」按钮用 `_moreButton` 局部名（`0.2.1-alpha.2` 客户端里唯一），兜底匹配 `aria-label`「更多操作 / More actions」——`0.1.5-alpha.2` 之前它是带「Session 日志 / Session log」文案的独立按钮，那条文案仍被识别。
+- **标题行样式**按 CSS Module 的 `<hash>_<local>` 形状匹配 Harness 的局部类名，并用会话外壳的 `[data-composer-seat]` 限定作用域、锚定在标题行自己的 `_fishHitbox` 后代上，因此不会波及其他模块（ContextMeter、ApprovalPanel）的同名 `.headline`。官方默认标题按它用过的**每个**局部名隐藏——`0.1.5-rc.1` 的 `_headlineText`，以及 `0.1.5-rc.2` 起包裹标题与徽章的 `_titleGroup`；没出现过该局部名的版本上，对应选择器只是空操作。`0.2.1-rc.2` 上已逐个核对：`[data-composer-seat]`、`_headline`、`_fishHitbox`、`_titleGroup`、`_previewBadge` 都还在（发布包里生成的类名形如 `pXSMma_titleGroup`），`_headlineText` 已不存在，只剩历史兼容的空操作选择器。`scripts/smoke-locators.mjs` 现在把这套核对自动化：每个在用定位点都必须在对应包的已发布 bundle 里出现，且插件源码里新出现的定位点必须先在表里登记。
+- **两个外壳开关**（轨迹页签、头部「更多操作」菜单按钮）按类名后缀定位元素、用本地化文案（含 `aria-label`）兜底，并用 `MutationObserver` 在 React 重挂载后重新应用；若两者都改名，元素保持可见，而不是误隐藏。轨迹页签是 `[role="tablist"]` 里文案为「轨迹 / Trajectory」的按钮（未变）；「更多操作」按钮用 `_moreButton` 局部名（`0.2.1-rc.2` 客户端里唯一），兜底匹配 `aria-label`「更多操作 / More actions」——`0.1.5-alpha.2` 之前它是带「Session 日志 / Session log」文案的独立按钮，那条文案仍被识别。
 
 ## 构建与验证
 
@@ -88,7 +90,7 @@ pnpm test          # 七个冒烟测试
 npx tsc -p tsconfig.json --noEmit   # 类型检查（build.mjs 不跑 tsc）
 ```
 
-`pnpm test` 依次跑：`scripts/smoke-client.mjs`（按浏览器加载器的真实方式加载 `lib/client.js`，断言 bundle id == 包名、导出与 `inject` 契约）、`scripts/smoke-host.mjs`（加载 `lib/index.js`，断言五个字段都是 volatile、默认值正确，且 Host 半侧以**自己的 fiber** 注册 `{ auto: false }`）、`scripts/smoke-visibility.mjs`（在 jsdom 里按 `0.2.1-alpha.2` 的真实头部标记挂载 `apply()`，验证两个持久化开关驱动 DOM，包括重挂载后的观察者补偿、`aria-label` 兜底定位，以及 `0.1.5-alpha.2` 之前那个「Session 日志」文字按钮仍被识别）、`scripts/smoke-config.mjs`（用假的配置表单挂载 `apply()`，验证按行 id `brand-deepseek` 取表单、读到的配置驱动运行时、开关经 `form.set` 写回、Host 拒绝写入或页面不可写时不假装已保存）、`scripts/smoke-shadowing.mjs`（用**真实**的 `@deepseek-ai/dsh-client-ui-slots` 注册表预置内置品牌占位，验证本插件压过它而不是抛错、关掉自定义样式后交还给它、同优先级注册确实会抛错，且没有内置占位的构建里仍然渲染鲸鱼标志）、`scripts/smoke-locators.mjs`（对已发布的 `-ui-conversation`、`-ui-trajectory`、`dsh-session-log-export` bundle 逐个校验在用的类名/文案定位点，并要求源码里的每个定位点都已在表里登记）与 `scripts/smoke-metadata.mjs`（按 Harness 的解析规则校验 `./locale/*.json` 与 `./icon`，含语言 id 文件名、非空标题描述、图标格式与 256 KiB 上限、`exports`/`files` 双声明，以及图标与侧边栏同一条鲸鱼路径）。jsdom 只是本包的开发依赖，运行时不需要。
+`pnpm test` 依次跑：`scripts/smoke-client.mjs`（按浏览器加载器的真实方式加载 `lib/client.js`，断言 bundle id == 包名、导出与 `inject` 契约）、`scripts/smoke-host.mjs`（加载 `lib/index.js`，断言五个字段都是 volatile、默认值正确，且 Host 半侧以**自己的 fiber** 注册 `{ auto: false }`）、`scripts/smoke-visibility.mjs`（在 jsdom 里按 `0.2.1-rc.2` 的真实头部标记挂载 `apply()`，验证两个持久化开关驱动 DOM，包括重挂载后的观察者补偿、`aria-label` 兜底定位，以及 `0.1.5-alpha.2` 之前那个「Session 日志」文字按钮仍被识别）、`scripts/smoke-config.mjs`（用假的配置表单挂载 `apply()`，验证按行 id `brand-deepseek` 取表单、读到的配置驱动运行时、开关经 `form.set` 写回、Host 拒绝写入或页面不可写时不假装已保存）、`scripts/smoke-shadowing.mjs`（用**真实**的 `@deepseek-ai/dsh-client-ui-slots` 注册表预置内置品牌占位，验证本插件压过它而不是抛错、关掉自定义样式后交还给它、同优先级注册确实会抛错，且没有内置占位的构建里仍然渲染鲸鱼标志）、`scripts/smoke-locators.mjs`（对已发布的 `-ui-conversation`、`-ui-trajectory`、`dsh-session-log-export` bundle 逐个校验在用的类名/文案定位点，并要求源码里的每个定位点都已在表里登记）与 `scripts/smoke-metadata.mjs`（按 Harness 的解析规则校验 `./locale/*.json` 与 `./icon`，含语言 id 文件名、非空标题描述、图标格式与 256 KiB 上限、`exports`/`files` 双声明，以及图标与侧边栏同一条鲸鱼路径）。jsdom 只是本包的开发依赖，运行时不需要。
 
 ## 常见问题
 

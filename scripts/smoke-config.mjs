@@ -8,9 +8,12 @@
  *  - a toggle writes through `form.set` and adopts the accepted section, and a
  *    pushed section (another page, or the profile patch) is adopted with no
  *    write at all;
- *  - a refused write and a non-writable page (non-loopback, memory mode) never
- *    pretend to persist: the page keeps showing the accepted section, reports
- *    that it is not writable, and no write is attempted.
+ *  - a refused write and a page whose settings namespace is unavailable or
+ *    whose Host document is not writable never pretend to persist: the page
+ *    keeps showing the accepted section, reports that it is not writable, and
+ *    no write is attempted. (Since DSH 0.2.1-rc.2 every authenticated browser
+ *    persists through the Host document, so there is no client-side memory
+ *    mode to simulate any more.)
  */
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
@@ -45,7 +48,7 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 30))
  * Fake `ctx.configForms.get()` form: the accepted section, its subscribers, and
  * the write log the assertions read. `accept: false` mirrors a Host refusal.
  */
-function createForm({ value, status = 'ready', writable = true, mode = 'host', accept = true }) {
+function createForm({ value, status = 'ready', writable = true, accept = true }) {
   const listeners = new Set()
   let snapshot = {
     status,
@@ -54,7 +57,6 @@ function createForm({ value, status = 'ready', writable = true, mode = 'host', a
     user: undefined,
     revision: value === undefined ? undefined : 1,
     writable,
-    mode,
   }
   const form = {
     setCalls: [],
@@ -221,10 +223,13 @@ const sessionLogButtonOf = (document) => document.querySelector('.Gvuf8a_moreBut
   assert(pageState().busy === false, 'the page should settle after a refusal')
 }
 
-// 5. A non-writable page (non-loopback, memory mode) applies defaults and never writes.
+// 5. A page that cannot read the namespace or write the Host document applies
+//    defaults and never writes. Defensive guard: the 0.2.1-rc.2 settings
+//    provider reports `writable: true` once a namespace is served, so a
+//    not-writable snapshot only arises from a future or remote variant.
 {
-  const form = createForm({ value: undefined, status: 'unavailable', writable: false, mode: 'memory' })
-  const { window, face, pageState } = await boot(form, { url: 'http://192.168.1.5:3080/' })
+  const form = createForm({ value: undefined, status: 'unavailable', writable: false })
+  const { window, face, pageState } = await boot(form)
   assert(colorVarOf(window.document) === '#4176e6', 'the schema defaults should apply while no section can be read')
   assert(heroSheetOf(window.document) !== null, 'the default hero look should apply')
   assert(pageState().writable === false, 'the settings page should see the form as not writable')

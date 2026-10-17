@@ -203,10 +203,15 @@ export function apply(ctx: ClientContext): void {
     visibility.setSessionLogButton(state.sessionLogButton)
   }
 
-  /** Whether the Host document accepts writes from this page. */
+  /**
+   * Whether the Host document accepts writes from this page. Since DSH
+   * 0.2.1-rc.2 every authenticated browser persists through the Host document,
+   * so the client-side `mode: 'host' | 'memory'` split is gone from
+   * `ConfigFormSnapshot`; `writable` alone decides.
+   */
   const writable = (): boolean => {
     const snapshot = form.getSnapshot()
-    return snapshot.status === 'ready' && snapshot.writable && snapshot.mode === 'host'
+    return snapshot.status === 'ready' && snapshot.writable
   }
 
   /**
