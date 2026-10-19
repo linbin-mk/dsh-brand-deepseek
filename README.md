@@ -8,9 +8,27 @@
 [![Node](https://img.shields.io/node/v/@linbin-mk/dsh-brand-deepseek)](package.json)
 [![平台](https://img.shields.io/badge/platform-Web%20%E5%AE%A2%E6%88%B7%E7%AB%AF-lightgrey)](#要求)
 
-`dsh-brand-deepseek` 是一个**纯第三方、自包含**的 DeepSeek Harness 客户端插件。它把 Web 客户端侧边栏的品牌替换成 DeepSeek 官方样式——鲸鱼标志加 `deepseek` 字标；开启后还会把空白会话页聊天框上方的标题行替换成官方标题（鲸鱼标志 + 想从哪里开始?）。它全部通过 Harness 已公开的插槽系统覆盖外壳的 `DSH 本地构建` 回退品牌，**不需要改动 Harness 源码**。
+`dsh-brand-deepseek` 是一个**纯第三方、自包含**的 DeepSeek Harness 客户端插件：通过 Harness 已公开的插槽系统，把 Web 客户端的侧边栏品牌与会话页标题替换成 DeepSeek 官方样式，**不需要改动 Harness 源码**。
 
-插件占用两个单占位插槽：`sidebar.brand.mark`（鲸鱼标志）与 `sidebar.brand.name`（`deepseek` 字标）；标题行的替换走 `conversation.hero.brand.mark` 插槽加一段作用域受控的样式表。三个品牌插槽都以**低于默认值的优先级**注册，因此在官方构建里会**压过**内置的 `ui-brand-official` 占位，而不是与它抢同一个占位（详见[工作原理](#工作原理)）。
+- **侧边栏品牌** —— 鲸鱼标志加 `deepseek` 字标，默认填充官方 DeepSeek 蓝，另有 9 种颜色可选。
+- **会话页标题** —— 空白会话页聊天框上方的标题行改为「鲸鱼标志 + 想从哪里开始?」，官方默认标题（探索未至之境 + 预览版徽章）隐藏。
+- **随时可退回** —— 左下角 **设置 → 品牌样式** 可单独开关两处品牌；关闭后恢复 Harness 官方默认品牌（`DSH 本地构建` + 构建版本徽章）。
+
+## 效果预览
+
+![启用 dsh-brand-deepseek 后的 DeepSeek Harness Web 客户端：侧边栏是鲸鱼标志与 deepseek 字标，空白会话页标题是鲸鱼标志与「想从哪里开始?」](https://raw.githubusercontent.com/linbin-mk/dsh-brand-deepseek/main/docs/images/overview.png)
+
+未启用（或关闭「自定义样式」）时，侧边栏显示 Harness 自带的 `DSH 本地构建` 品牌与构建版本徽章：
+
+| 默认外观 | 启用插件后 |
+| --- | --- |
+| ![默认的 DSH 本地构建侧边栏品牌与构建版本徽章](https://raw.githubusercontent.com/linbin-mk/dsh-brand-deepseek/main/docs/images/sidebar-before.png) | ![DeepSeek 鲸鱼标志与 deepseek 字标](https://raw.githubusercontent.com/linbin-mk/dsh-brand-deepseek/main/docs/images/sidebar-after.png) |
+
+「设置 → 品牌样式」里可以分别开关自定义样式、会话页标题、轨迹页签与更多操作按钮，并从 10 种品牌颜色中选择：
+
+![品牌样式设置页：四个开关、十种品牌颜色与实时预览](https://raw.githubusercontent.com/linbin-mk/dsh-brand-deepseek/main/docs/images/settings.png)
+
+插件只占用 `sidebar.brand.mark`、`sidebar.brand.name` 与 `conversation.hero.brand.mark` 三个公开插槽，并以低于默认值的优先级注册，在官方构建里压过内置的 `ui-brand-official` 占位；具体机制见[工作原理](#工作原理)。
 
 ## 功能
 
@@ -49,7 +67,7 @@ pnpm install
 pnpm build
 pnpm test
 npm pack
-dsh plugin --profile web-brand add ./linbin-mk-dsh-brand-deepseek-0.5.0.tgz
+dsh plugin --profile web-brand add ./linbin-mk-dsh-brand-deepseek-0.5.1.tgz
 ```
 
 从同一个 profile 移除插件：

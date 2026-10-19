@@ -8,9 +8,27 @@ English | [简体中文](https://github.com/linbin-mk/dsh-brand-deepseek/blob/ma
 [![Node](https://img.shields.io/node/v/@linbin-mk/dsh-brand-deepseek)](package.json)
 [![platform](https://img.shields.io/badge/platform-Web%20client-lightgrey)](#requirements)
 
-`dsh-brand-deepseek` is a **third-party, self-contained** DeepSeek Harness client plugin. It replaces the Web client sidebar brand with the official DeepSeek look — whale mark plus `deepseek` wordmark — and, when enabled, the blank-session hero headline above the chat box with the official title (whale mark + 想从哪里开始?). It overrides the shell's `DSH Local Build` fallback entirely through the documented slot system, so the harness source never has to be patched.
+`dsh-brand-deepseek` is a **third-party, self-contained** DeepSeek Harness client plugin: through the harness's documented slot system it gives the Web client the official DeepSeek brand in the sidebar and above the chat box, **without patching the harness source**.
 
-It fills two single slots: `sidebar.brand.mark` (the whale mark) and `sidebar.brand.name` (the `deepseek` wordmark); the hero headline goes through the `conversation.hero.brand.mark` slot plus one scoped style sheet. All three brand slots register **below the default priority**, so in an official build they shadow the shipped `ui-brand-official` occupant instead of competing with it for the same cell (see [How it works](#how-it-works)).
+- **Sidebar brand** — the whale mark plus the `deepseek` wordmark, filled with the official DeepSeek blue by default; nine more colors are available.
+- **Hero headline** — a blank session's title row above the chat box becomes whale mark + 想从哪里开始?, with the official default headline (探索未至之境 + the 预览版 badge) hidden.
+- **Always reversible** — **Settings → Brand style** toggles each piece independently; turning it off restores the harness default brand (`DSH 本地构建` + build-version badge).
+
+## Screenshots
+
+![The DeepSeek Harness Web client with dsh-brand-deepseek enabled: the DeepSeek whale and wordmark in the sidebar, and 想从哪里开始? above the composer](https://raw.githubusercontent.com/linbin-mk/dsh-brand-deepseek/main/docs/images/overview.png)
+
+Without the plugin (or with "Custom style" off), the sidebar shows the harness's built-in `DSH 本地构建` brand and build-version badge:
+
+| Default | With the plugin |
+| --- | --- |
+| ![The default DSH 本地构建 sidebar brand with its build-version badge](https://raw.githubusercontent.com/linbin-mk/dsh-brand-deepseek/main/docs/images/sidebar-before.png) | ![The DeepSeek whale mark and deepseek wordmark](https://raw.githubusercontent.com/linbin-mk/dsh-brand-deepseek/main/docs/images/sidebar-after.png) |
+
+**Settings → Brand style** toggles the custom style, the hero headline, the trajectory tab and the more-actions button, and offers ten brand colors:
+
+![The Brand style settings page with four toggles, ten brand colors and a live preview](https://raw.githubusercontent.com/linbin-mk/dsh-brand-deepseek/main/docs/images/settings.png)
+
+The plugin only fills the three public slots `sidebar.brand.mark`, `sidebar.brand.name` and `conversation.hero.brand.mark`, registering below the default priority so it shadows the shipped `ui-brand-official` occupant in an official build; see [How it works](#how-it-works).
 
 ## Features
 
@@ -49,7 +67,7 @@ pnpm install
 pnpm build
 pnpm test
 npm pack
-dsh plugin --profile web-brand add ./linbin-mk-dsh-brand-deepseek-0.5.0.tgz
+dsh plugin --profile web-brand add ./linbin-mk-dsh-brand-deepseek-0.5.1.tgz
 ```
 
 Remove it from the same profile:
